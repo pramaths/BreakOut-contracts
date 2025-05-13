@@ -23,7 +23,7 @@ pub struct CreateContest<'info> {
         payer = creator,
         token::mint = pool_mint,
         token::authority = vault_authority,
-        seeds = [b"vault", contest_id.to_le_bytes().as_ref()],
+        seeds = [b"vault", contest_id.to_le_bytes().as_ref(), pool_mint.key().as_ref()],
         bump
     )]
     pub vault: Box<Account<'info, TokenAccount>>,

@@ -25,5 +25,9 @@ pub enum ErrorCode {
     InvalidWinnerCount,
     #[msg("Invalid contest id passed")]
     InvalidContestId,
+    #[msg("Stake is locked")]
+    StakeLocked,
+    #[msg("Invalid unstake amount")]
+    InvalidUnstakeAmount,
 
 }

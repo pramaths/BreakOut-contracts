@@ -9,10 +9,12 @@ import {
     getAccount,
     Account as TokenAccount
 } from "@solana/spl-token";
-import {Spotwin} from "../target/types/spotwin";
+import { Spotwin } from "../target/types/spotwin";
 
-
-describe('happy-flow', () => { 
+function sleep(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+describe('happy-flow', () => {
     anchor.setProvider(anchor.AnchorProvider.env());
     const program = anchor.workspace.Spotwin as Program<Spotwin>;
 
@@ -24,24 +26,26 @@ describe('happy-flow', () => {
     let vaultPda: anchor.web3.PublicKey;
     let vaultAuth: anchor.web3.PublicKey;
     let participantPda: anchor.web3.PublicKey;
-    let contestBump: number; 
+    let contestBump: number;
     let vaultBump: number;
     let vaultAuthBump: number;
     const contestId = new BN(Date.now());
     const contestIdBuffer = contestId.toArrayLike(Buffer, "le", 8);
-    const entryFee = new BN(1_000_000); 
+    const entryFee = new BN(1_000_000);
     let lockSlot: BN;
+    let stakeVaultPda: anchor.web3.PublicKey;
+    let stakeAuthorityPda: anchor.web3.PublicKey;
 
     it('initialize a contest PDA and vault', async () => {
         usdcMint = await createMint(
             provider.connection,
-            payer.payer, 
-            payer.publicKey, 
-            null, 
-            6, 
+            payer.payer,
+            payer.publicKey,
+            null,
+            6,
         )
         console.log("USDC Mint created:", usdcMint.toBase58());
-        
+
         [contestPda, contestBump] = anchor.web3.PublicKey.findProgramAddressSync(
             [
                 Buffer.from("contest"),
@@ -56,18 +60,33 @@ describe('happy-flow', () => {
             [
                 Buffer.from("vault"),
                 contestIdBuffer,
+                usdcMint.toBuffer()
             ],
             program.programId,
         )
         console.log("vaultPda", vaultPda.toBase58());
 
-        lockSlot = new BN((await provider.connection.getSlot() + 100)); 
+        lockSlot = new BN((await provider.connection.getSlot() + 100));
 
         [vaultAuth, vaultAuthBump] = anchor.web3.PublicKey.findProgramAddressSync(
-                [Buffer.from("vault_authority"), contestIdBuffer],
-                program.programId
-            );
+            [Buffer.from("vault_authority"), contestIdBuffer],
+            program.programId
+        );
         console.log("vaultAuth", vaultAuth.toBase58());
+
+        stakeVaultPda = anchor.web3.PublicKey.findProgramAddressSync(
+            [
+                Buffer.from("stake_vault"),
+            ],
+            program.programId,
+        )[0];
+        console.log("stakeVaultPda", stakeVaultPda.toBase58());
+
+        stakeAuthorityPda = anchor.web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("stake_vault_auth")],
+            program.programId
+        )[0];
+        console.log("stakeAuthorityPda", stakeAuthorityPda.toBase58());
 
         const tx = await program.methods
             .createContest(contestId, entryFee, lockSlot)
@@ -87,7 +106,7 @@ describe('happy-flow', () => {
         await provider.connection.confirmTransaction(tx, "confirmed");
 
         const contest = await program.account.contest.fetch(contestPda);
-        console.log("Contest vault address:", vaultPda.toBase58()); 
+        console.log("Contest vault address:", vaultPda.toBase58());
         console.log("Contest account fetched:", contest);
 
         const vaultTokenAccount = await getAccount(provider.connection, vaultPda);
@@ -96,8 +115,8 @@ describe('happy-flow', () => {
         assert.ok(contest.creator.equals(payer.publicKey));
         assert.equal(contest.entryFee.toString(), entryFee.toString());
         assert.equal(contest.lockSlot.toString(), lockSlot.toString());
-        assert.equal(contest.totalEntries, 0); 
-        assert.ok(contest.status.hasOwnProperty('open')); 
+        assert.equal(contest.totalEntries, 0);
+        assert.ok(contest.status.hasOwnProperty('open'));
         assert.ok(contest.poolMint.equals(usdcMint));
 
         const vaultInfo = await getAccount(
@@ -111,7 +130,7 @@ describe('happy-flow', () => {
     })
 
     it('join a contest', async () => {
-        assert.ok(usdcMint, "USDC Mint should be initialized"); 
+        assert.ok(usdcMint, "USDC Mint should be initialized");
         assert.ok(contestPda, "Contest PDA should be initialized");
         assert.ok(vaultPda, "Vault PDA should be initialized");
         assert.ok(vaultAuth, "Vault Auth PDA should be initialized");
@@ -124,14 +143,14 @@ describe('happy-flow', () => {
         );
         console.log("Player token account:", playerTokenAccount.address.toBase58());
 
-        const mintAmount = new BN(100 * 1_000_000); 
+        const mintAmount = new BN(100 * 1_000_000);
         await mintTo(
             provider.connection,
             payer.payer,
             usdcMint,
             playerTokenAccount.address,
-            payer.payer, 
-            BigInt(mintAmount.toString()) 
+            payer.payer,
+            BigInt(mintAmount.toString())
         );
         console.log(`Minted ${mintAmount} tokens to player account`);
 
@@ -156,7 +175,7 @@ describe('happy-flow', () => {
                 contest: contestPda,
                 participant: participantPda,
                 vault: vaultPda,
-                vaultAuthority: vaultAuth, 
+                vaultAuthority: vaultAuth,
                 playerToken: playerTokenAccount.address,
                 poolMint: usdcMint,
                 systemProgram: anchor.web3.SystemProgram.programId,
@@ -165,7 +184,7 @@ describe('happy-flow', () => {
             })
             .signers([payer.payer])
             .rpc();
-        
+
         console.log("Join contest tx:", joinTx);
         await provider.connection.confirmTransaction(joinTx, "confirmed");
 
@@ -212,14 +231,14 @@ describe('happy-flow', () => {
         // Example: attemptMask for first 9 questions = (2^9) - 1 = 0x1FF (binary 111111111)
         // Example: answerBits for first 9 questions (user answers '1' for all) = (2^9) - 1 = 0x1FF
         const attemptMask = new BN((1 << NUM_ANSWERED_QUESTIONS) - 1);
-        const answerBits = new BN((1 << NUM_ANSWERED_QUESTIONS) - 1); 
+        const answerBits = new BN((1 << NUM_ANSWERED_QUESTIONS) - 1);
         console.log(`User attempts bitmask: 0b${attemptMask.toString(2)}`);
         console.log(`User answers bitmask: 0b${answerBits.toString(2)}`);
 
         console.log(`Submitting answers: attemptMask=0b${attemptMask.toString(2)}, answerBits=0b${answerBits.toString(2)}`);
 
         const tx = await program.methods
-            .updateAnswers(contestId, answerBits.toNumber(), attemptMask.toNumber()) 
+            .updateAnswers(contestId, answerBits.toNumber(), attemptMask.toNumber())
             .accountsStrict({
                 player: payer.publicKey,
                 contest: contestPda,
@@ -227,7 +246,7 @@ describe('happy-flow', () => {
             })
             .signers([payer.payer])
             .rpc();
-        
+
         console.log("Submit answers tx:", tx);
         await provider.connection.confirmTransaction(tx, "confirmed");
 
@@ -303,7 +322,7 @@ describe('happy-flow', () => {
         assert.ok(vaultPda, "Vault PDA should be initialized");
         assert.ok(vaultAuth, "Vault Auth PDA should be initialized");
         // participantPda is for 'payer' who joined the contest earlier
-        assert.ok(participantPda, "Participant PDA for payer (winner) should be initialized"); 
+        assert.ok(participantPda, "Participant PDA for payer (winner) should be initialized");
 
         const contestAccountBefore = await program.account.contest.fetch(contestPda);
         assert.ok(contestAccountBefore.status.hasOwnProperty('answerKeyPosted'), "Contest must have answer key posted to send batch.");
@@ -313,7 +332,7 @@ describe('happy-flow', () => {
         // 1. Define Winner(s) and Amounts
         const winner1 = payer.publicKey; // 'payer' is our winner
         // Vault has at least entryFee from payer's join. Send half of it back.
-        const amountToSend1 = new BN(entryFee.toNumber() / 2); 
+        const amountToSend1 = new BN(entryFee.toNumber() / 2);
         console.log(`Attempting to send ${amountToSend1.toString()} to winner ${winner1.toBase58()}`);
         assert(BigInt(vaultTokenAccountBefore.amount.toString()) >= BigInt(amountToSend1.toString()), "Vault does not have enough funds to send the specified amount.");
 
@@ -354,7 +373,7 @@ describe('happy-flow', () => {
             .remainingAccounts(remainingAccountsList)
             .signers([payer.payer]) // Creator (payer in this test) signs
             .rpc();
-        
+
         console.log("Send batch transaction signature:", txSignature);
         await provider.connection.confirmTransaction(txSignature, "confirmed");
         console.log("Transaction confirmed.");
@@ -375,5 +394,102 @@ describe('happy-flow', () => {
         console.log(`Winner1 ATA balance after: ${winner1AtaBalanceAfter.toString()}`);
         console.log(`Vault balance after: ${vaultTokenAccountAfter.amount.toString()}`);
         console.log(`Contest paidSoFar after: ${contestAccountAfter.paidSoFar.toString()}`);
+    });
+
+    it('initialize stake', async () => {
+        const tx = await program.methods
+            .initializeStake()
+            .accountsStrict({
+                payer: payer.publicKey,
+                poolMint: usdcMint,
+                stakeVault: stakeVaultPda,
+                stakeAuthority: stakeAuthorityPda,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                systemProgram: anchor.web3.SystemProgram.programId,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            })
+            .signers([payer.payer])
+            .rpc();
+        console.log("Initialize stake tx:", tx);
+        await provider.connection.confirmTransaction(tx, "confirmed");
+    });
+
+
+    it('stake tokens', async () => {
+        const stakeAcctPda = anchor.web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("stake"), payer.publicKey.toBuffer()],
+            program.programId
+        )[0];
+
+        const stakerAtaPda = await getOrCreateAssociatedTokenAccount(
+            provider.connection,
+            payer.payer,
+            usdcMint,
+            payer.publicKey
+        );
+        await mintTo(
+            provider.connection,
+            payer.payer,
+            usdcMint,
+            stakerAtaPda.address,
+            payer.payer,
+            500_000 // 1 token with 6 decimals
+        );
+
+        const tx = await program.methods
+            .stakeTokens(new BN(500_000))
+            .accountsStrict({
+                staker: payer.publicKey,
+                stakeAcct: stakeAcctPda,
+                stakeVault: stakeVaultPda,
+                stakeAuthority: stakeAuthorityPda,
+                stakerAta: stakerAtaPda.address,
+                tokenProgram: TOKEN_PROGRAM_ID,
+                systemProgram: anchor.web3.SystemProgram.programId,
+                rent: anchor.web3.SYSVAR_RENT_PUBKEY,
+            })
+            .signers([])
+            .rpc();
+        console.log("Stake tokens tx:", tx);
+        await provider.connection.confirmTransaction(tx, "confirmed");
+        const stakeAcct = await program.account.stakeAccount.fetch(stakeAcctPda);
+        console.log("StakeAccount data:", stakeAcct);
+        assert.equal(stakeAcct.amount.toNumber(), 500_000);
+        assert.ok(stakeAcct.owner.equals(payer.publicKey));
+        console.log("balance after stake:", stakeAcct.amount.toString());
+    });
+
+    it('unstake tokens', async () => {
+        await sleep(10_000);
+        const stakeAcctPda = anchor.web3.PublicKey.findProgramAddressSync(
+            [Buffer.from("stake"), payer.publicKey.toBuffer()],
+            program.programId
+        )[0];
+
+        const stakerAtaPda = await getOrCreateAssociatedTokenAccount(
+            provider.connection,
+            payer.payer,
+            usdcMint,
+            payer.publicKey
+        );
+        const tx = await program.methods
+            .unstakeTokens(new BN(500_000))
+            .accountsStrict({
+                staker: payer.publicKey,
+                stakeAcct: stakeAcctPda,
+                stakeVault: stakeVaultPda,
+                stakeAuthority: stakeAuthorityPda,
+                stakerAta: stakerAtaPda.address,
+                tokenProgram: TOKEN_PROGRAM_ID,
+            })
+            .signers([])
+            .rpc();
+        console.log("Unstake tokens tx:", tx);
+        await provider.connection.confirmTransaction(tx, "confirmed");
+        const stakeAcct = await program.account.stakeAccount.fetch(stakeAcctPda);
+        console.log("StakeAccount data:", stakeAcct);
+        assert.equal(stakeAcct.amount.toNumber(), 0);
+        assert.ok(stakeAcct.owner.equals(payer.publicKey));
+        console.log("balance after unstake:", stakeAcct.amount.toString());
     });
 })

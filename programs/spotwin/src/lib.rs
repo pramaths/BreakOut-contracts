@@ -3,10 +3,12 @@ use anchor_lang::prelude::*;
 pub mod state;
 pub mod instructions;
 pub mod error;
+pub mod constants;
 
 pub use state::*;
 pub use instructions::*;
 pub use error::*;
+pub use constants::*;
 
 declare_id!("HQTPgJCco97ZENMJpUDVQzyStmDTDwPqXB5ZWM8ioUSh");
 
@@ -51,7 +53,20 @@ pub mod spotwin {
     ) -> Result<()> {
         send_batch::handler(ctx, contest_id, winners, amounts)
     }
+
+    pub fn initialize_stake(
+        ctx: Context<InitializeStake>
+    ) -> Result<()> {
+        initialize_stake::handler(ctx)
+    }
     
+    pub fn stake_tokens(ctx: Context<StakeTokens>, amount: u64) -> Result<()> {
+        stake_tokens::handler(ctx, amount)
+    }
+
+    pub fn unstake_tokens(ctx: Context<UnstakeTokens>, amount: u64) -> Result<()> {
+        unstake_tokens::handler(ctx, amount)
+    }
 }
 
 #[derive(Accounts)]

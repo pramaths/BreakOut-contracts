@@ -5,6 +5,9 @@ pub mod lock_contest;
 pub mod post_answer_key;
 pub mod post_payout_root;
 pub mod send_batch;
+pub mod stake_tokens;
+pub mod unstake_tokens;
+pub mod initialize_stake;
 
 pub use create_contest::*;
 pub use join_contest::*;
@@ -13,3 +16,6 @@ pub use lock_contest::*;
 pub use post_answer_key::*;
 pub use post_payout_root::*;
 pub use send_batch::*;
+pub use stake_tokens::*;
+pub use unstake_tokens::*;
+pub use initialize_stake::*;

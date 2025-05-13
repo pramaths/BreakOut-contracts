@@ -33,7 +33,8 @@ pub struct JoinContest<'info> {
         mut,
         seeds = [
             b"vault",
-            contest_id.to_le_bytes().as_ref()
+            contest_id.to_le_bytes().as_ref(),
+            pool_mint.key().as_ref()
         ],
         bump = contest.vault_bump
     )]
