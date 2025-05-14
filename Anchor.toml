@@ -4,13 +4,13 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-spotwin = "HQTPgJCco97ZENMJpUDVQzyStmDTDwPqXB5ZWM8ioUSh"
+spotwin = "9ADHDvAGodZkqeQm1XEEQimYaUM9LRJ2z7dp37zdSdDr"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

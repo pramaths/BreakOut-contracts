@@ -10,7 +10,7 @@ pub use instructions::*;
 pub use error::*;
 pub use constants::*;
 
-declare_id!("HQTPgJCco97ZENMJpUDVQzyStmDTDwPqXB5ZWM8ioUSh");
+declare_id!("9ADHDvAGodZkqeQm1XEEQimYaUM9LRJ2z7dp37zdSdDr");
 
 #[program]
 pub mod spotwin {
