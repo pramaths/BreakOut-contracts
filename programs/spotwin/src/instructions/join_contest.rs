@@ -11,6 +11,10 @@ pub struct JoinContest<'info> {
     #[account(mut)]
     pub player: Signer<'info>,
 
+    #[account(mut, signer)]
+    /// CHECK: sponsor pays rent & fees
+    pub fee_payer: Signer<'info>,
+
     #[account(
         mut,
         seeds = [b"contest", &contest_id.to_le_bytes()[..]],
@@ -22,7 +26,7 @@ pub struct JoinContest<'info> {
  
     #[account(
      init,
-     payer = player,
+     payer = fee_payer,
      space = Participant::LEN,
      seeds = [b"participant".as_ref(), &contest_id.to_le_bytes(), player.key().as_ref()],
      bump

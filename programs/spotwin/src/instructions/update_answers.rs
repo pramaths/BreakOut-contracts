@@ -9,15 +9,21 @@ use crate::state::participant::Participant;
 pub struct UpdateAnswers<'info> {
 
     #[account(mut)]
-    pub player: Signer<'info>,
+    pub creator: Signer<'info>,
     
     #[account(
         mut,
         seeds = [b"contest", &contest_id.to_le_bytes()[..]],
         bump = contest.contest_bump,
+        has_one = creator,
         constraint = contest.status == ContestStatus::Open @ErrorCode::ContestClosed,
     )]
     pub contest: Box<Account<'info, Contest>>,
+
+    
+    /// CHECK: pure identity; used only as seed for `participant` PDA.
+    /// Safe because we never read or write any lamports or data here.
+    pub player: UncheckedAccount<'info>,  
 
     #[account(
         mut,
@@ -29,6 +35,7 @@ pub struct UpdateAnswers<'info> {
         bump
     )]
     pub participant: Box<Account<'info, Participant>>,
+
 }
 
 
@@ -37,6 +44,11 @@ pub fn handler(ctx: Context<UpdateAnswers>, contest_id: u64, new_attempt_mask: u
     let c = &mut ctx.accounts.contest;
 
     require!(now < c.lock_slot, ErrorCode::ContestClosed);
+    let participant = &mut ctx.accounts.participant;
+    require!(
+        participant.player == ctx.accounts.player.key(),
+        ErrorCode::InvalidParticipant
+    );
     require!(
         new_attempt_mask.count_ones() == 9,
         ErrorCode::InvalidAttemptMask

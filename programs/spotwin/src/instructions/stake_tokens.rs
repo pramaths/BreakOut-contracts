@@ -8,9 +8,13 @@ pub struct StakeTokens<'info> {
     #[account(mut)]
     pub staker: Signer<'info>,
     
+    #[account(mut, signer)]
+    /// CHECK: backend sponsor – pays rent & tx fee
+    pub fee_payer: Signer<'info>, 
+    
     #[account(
         init_if_needed,
-        payer  = staker,
+        payer  = fee_payer,
         space  = StakeAccount::LEN,
         seeds  = [b"stake", staker.key().as_ref()],
         bump
